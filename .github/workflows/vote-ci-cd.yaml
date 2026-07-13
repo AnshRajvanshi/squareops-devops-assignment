@@ -15,7 +15,7 @@ permissions:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}/vote
+  IMAGE_NAME: anshrajvanshi/squareops-devops-assignment/vote
 
 jobs:
   build-push-update:
