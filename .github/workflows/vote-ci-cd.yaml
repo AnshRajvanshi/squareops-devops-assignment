@@ -16,16 +16,48 @@ permissions:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: anshrajvanshi/squareops-devops-assignment/vote
+  KIND_CLUSTER_NAME: ci-test
 
 jobs:
-  build-push-update:
-    name: Build, Push and Update Manifest
+  build-test-push-update:
+    name: Lint, Build, Test, Push and Update Manifest
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # ---------------------------------------------------------
+      # Lint Vote service Python code
+      # ---------------------------------------------------------
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python linter
+        run: pip install flake8
+
+      - name: Lint Vote service
+        run: |
+          flake8 vote \
+            --exclude=vote/tests \
+            --max-line-length=120 \
+            --extend-ignore=E203,W503
+
+      # ---------------------------------------------------------
+      # Lint Kubernetes manifests
+      # ---------------------------------------------------------
+      - name: Lint Kubernetes manifests
+        run: |
+          kubectl apply \
+            --dry-run=client \
+            --validate=false \
+            -f k8s-specifications/
+
+      # ---------------------------------------------------------
+      # Authenticate and build the Vote image
+      # ---------------------------------------------------------
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -36,7 +68,7 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build and push vote image
+      - name: Build and push Vote image
         uses: docker/build-push-action@v6
         with:
           context: ./vote
@@ -45,15 +77,140 @@ jobs:
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
+      # ---------------------------------------------------------
+      # Update manifest in runner before deployment testing
+      # ---------------------------------------------------------
       - name: Update Kubernetes manifest
         run: |
-          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
-          sed -i "s|image: .*|image: ${IMAGE}|" k8s-specifications/vote-deployment.yaml
+          set -Eeuo pipefail
 
+          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
+
+          sed -i \
+            "s|image: .*|image: ${IMAGE}|" \
+            k8s-specifications/vote-deployment.yaml
+
+          echo "Testing image: ${IMAGE}"
+
+      # ---------------------------------------------------------
+      # Create a completely fresh kind cluster in CI
+      # ---------------------------------------------------------
+      - name: Create fresh kind cluster
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: ${{ env.KIND_CLUSTER_NAME }}
+
+      - name: Verify kind cluster
+        run: |
+          set -Eeuo pipefail
+
+          kubectl cluster-info
+          kubectl get nodes
+
+      # ---------------------------------------------------------
+      # Install NGINX Ingress Controller
+      # ---------------------------------------------------------
+      - name: Install NGINX Ingress Controller
+        run: |
+          set -Eeuo pipefail
+
+          kubectl apply -f \
+            https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+
+          kubectl wait \
+            --namespace ingress-nginx \
+            --for=condition=ready pod \
+            --selector=app.kubernetes.io/component=controller \
+            --timeout=180s
+
+      # ---------------------------------------------------------
+      # Deploy complete application
+      # ---------------------------------------------------------
+      - name: Deploy application to fresh kind cluster
+        run: |
+          set -Eeuo pipefail
+
+          kubectl apply -f k8s-specifications/
+
+      # ---------------------------------------------------------
+      # Wait for every workload
+      # ---------------------------------------------------------
+      - name: Wait for application workloads
+        run: |
+          set -Eeuo pipefail
+
+          kubectl rollout status statefulset/db --timeout=180s
+
+          for deployment in redis vote result worker; do
+            echo "Waiting for deployment/${deployment}..."
+            kubectl rollout status \
+              "deployment/${deployment}" \
+              --timeout=180s
+          done
+
+          echo
+          echo "All workloads successfully rolled out."
+          kubectl get pods
+
+      # ---------------------------------------------------------
+      # Smoke test Vote endpoint
+      # ---------------------------------------------------------
+      - name: Smoke test Vote endpoint
+        run: |
+          set -Eeuo pipefail
+
+          kubectl port-forward service/vote 8080:80 \
+            > /tmp/vote-port-forward.log 2>&1 &
+
+          PORT_FORWARD_PID=$!
+
+          cleanup() {
+            kill "${PORT_FORWARD_PID}" 2>/dev/null || true
+          }
+
+          trap cleanup EXIT
+
+          echo "Waiting for Vote service port-forward..."
+
+          for attempt in $(seq 1 30); do
+            if curl \
+              --silent \
+              --show-error \
+              --fail \
+              http://127.0.0.1:8080/ \
+              > /tmp/vote-response.html; then
+
+              echo "Smoke test passed: Vote endpoint returned HTTP 200."
+              exit 0
+            fi
+
+            echo "Attempt ${attempt}/30 failed. Retrying..."
+            sleep 2
+          done
+
+          echo "ERROR: Vote endpoint did not return HTTP 200."
+          echo
+          echo "Port-forward logs:"
+          cat /tmp/vote-port-forward.log || true
+          echo
+          echo "Pod status:"
+          kubectl get pods -o wide || true
+          echo
+          echo "Vote logs:"
+          kubectl logs deployment/vote || true
+
+          exit 1
+
+      # ---------------------------------------------------------
+      # Commit manifest only after all tests succeed
+      # ---------------------------------------------------------
       - name: Commit updated manifest
         run: |
+          set -Eeuo pipefail
+
           git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
 
           git add k8s-specifications/vote-deployment.yaml
 
