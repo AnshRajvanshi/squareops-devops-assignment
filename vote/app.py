@@ -1,4 +1,3 @@
-# CI/CD pipeline test - SquareOps assignment
 from flask import Flask, render_template, request, make_response, g
 from redis import Redis
 import os
@@ -50,4 +49,3 @@ def hello():
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=80, debug=True, threaded=True)
-# CI/CD retry after GHCR image name fix
