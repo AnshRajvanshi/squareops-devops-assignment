@@ -9,6 +9,10 @@ on:
 
   workflow_dispatch:
 
+concurrency:
+  group: vote-service-ci-cd-main
+  cancel-in-progress: false
+
 permissions:
   contents: write
   packages: write
