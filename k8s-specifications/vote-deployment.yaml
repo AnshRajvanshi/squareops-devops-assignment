@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: vote
-          image: ghcr.io/anshrajvanshi/squareops-devops-assignment/vote:e5bd20c248dad63813ff5c5963e2ffe81751fb09
+          image: ghcr.io/anshrajvanshi/squareops-devops-assignment/vote:0db6fd03fac498756d4fcd499798d75016d69609
           ports:
             - containerPort: 80
               name: vote
