@@ -1,9 +1,9 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  name: worker
   labels:
     app: worker
-  name: worker
 spec:
   replicas: 1
   selector:
@@ -15,5 +15,35 @@ spec:
         app: worker
     spec:
       containers:
-      - image: dockersamples/examplevotingapp_worker
-        name: worker
+        - name: worker
+          image: dockersamples/examplevotingapp_worker
+
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - "test -d /proc/1"
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 3
+
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - "test -d /proc/1"
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi

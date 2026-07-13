@@ -1,9 +1,9 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  name: result
   labels:
     app: result
-  name: result
 spec:
   replicas: 1
   selector:
@@ -15,8 +15,34 @@ spec:
         app: result
     spec:
       containers:
-      - image: dockersamples/examplevotingapp_result
-        name: result
-        ports:
-        - containerPort: 80
-          name: result
+        - name: result
+          image: dockersamples/examplevotingapp_result
+          ports:
+            - containerPort: 80
+              name: result
+
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 3
+
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi

@@ -1,9 +1,9 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  name: redis
   labels:
     app: redis
-  name: redis
 spec:
   replicas: 1
   selector:
@@ -15,14 +15,44 @@ spec:
         app: redis
     spec:
       containers:
-      - image: redis:alpine
-        name: redis
-        ports:
-        - containerPort: 6379
-          name: redis
-        volumeMounts:
-        - mountPath: /data
-          name: redis-data
+        - name: redis
+          image: redis:alpine
+          ports:
+            - containerPort: 6379
+              name: redis
+
+          readinessProbe:
+            exec:
+              command:
+                - redis-cli
+                - ping
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 3
+
+          livenessProbe:
+            exec:
+              command:
+                - redis-cli
+                - ping
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+
+          volumeMounts:
+            - name: redis-data
+              mountPath: /data
+
       volumes:
-      - name: redis-data
-        emptyDir: {} 
+        - name: redis-data
+          emptyDir: {}
