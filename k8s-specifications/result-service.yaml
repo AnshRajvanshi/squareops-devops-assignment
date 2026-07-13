@@ -1,15 +1,14 @@
 apiVersion: v1
 kind: Service
 metadata:
+  name: result
   labels:
     app: result
-  name: result
 spec:
-  type: NodePort
-  ports:
-  - name: "result-service"
-    port: 8081
-    targetPort: 80
-    nodePort: 31001
+  type: ClusterIP
   selector:
     app: result
+  ports:
+    - name: result-service
+      port: 80
+      targetPort: 80
