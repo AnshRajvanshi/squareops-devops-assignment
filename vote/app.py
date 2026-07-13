@@ -1,3 +1,4 @@
+# CI/CD pipeline test - SquareOps assignment
 from flask import Flask, render_template, request, make_response, g
 from redis import Redis
 import os
