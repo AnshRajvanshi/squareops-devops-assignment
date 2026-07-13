@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: vote
-          image: dockersamples/examplevotingapp_vote
+          image: ghcr.io/anshrajvanshi/squareops-devops-assignment/vote:e5bd20c248dad63813ff5c5963e2ffe81751fb09
           ports:
             - containerPort: 80
               name: vote
