@@ -186,7 +186,38 @@ jobs:
         run: |
           set -Eeuo pipefail
 
-          kubectl rollout status statefulset/db --timeout=180s
+          echo "Waiting for statefulset/db..."
+
+          if ! kubectl rollout status statefulset/db --timeout=180s; then
+            echo
+            echo "ERROR: PostgreSQL StatefulSet failed to become ready."
+            echo
+
+            echo "=== All pods ==="
+            kubectl get pods -o wide || true
+
+            echo
+            echo "=== PostgreSQL pod description ==="
+            kubectl describe pod db-0 || true
+
+            echo
+            echo "=== PostgreSQL current logs ==="
+            kubectl logs db-0 || true
+
+            echo
+            echo "=== PostgreSQL previous logs ==="
+            kubectl logs db-0 --previous || true
+
+            echo
+            echo "=== PersistentVolumeClaims ==="
+            kubectl get pvc -o wide || true
+
+            echo
+            echo "=== Recent Kubernetes events ==="
+            kubectl get events --sort-by=.lastTimestamp || true
+
+            exit 1
+          fi
 
           for deployment in redis vote result worker; do
             echo "Waiting for deployment/${deployment}..."
