@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: vote
-          image: ghcr.io/anshrajvanshi/squareops-devops-assignment/vote:499dca87f25be1ed38621f943cc98869f116aef0
+          image: ghcr.io/anshrajvanshi/squareops-devops-assignment/vote:7ed0560d013865b1cf1b1794c434fd229c50ce3f
 
           securityContext:
             runAsNonRoot: true
