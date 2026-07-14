@@ -17,6 +17,17 @@ spec:
       containers:
         - name: redis
           image: redis:alpine
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 999
+            runAsGroup: 1000
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
+
           ports:
             - containerPort: 6379
               name: redis

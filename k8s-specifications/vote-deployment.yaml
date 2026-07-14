@@ -17,6 +17,18 @@ spec:
       containers:
         - name: vote
           image: ghcr.io/anshrajvanshi/squareops-devops-assignment/vote:499dca87f25be1ed38621f943cc98869f116aef0
+
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
+
           ports:
             - containerPort: 80
               name: vote

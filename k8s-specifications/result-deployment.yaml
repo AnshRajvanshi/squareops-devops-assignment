@@ -17,6 +17,17 @@ spec:
       containers:
         - name: result
           image: dockersamples/examplevotingapp_result
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
+
           ports:
             - containerPort: 80
               name: result

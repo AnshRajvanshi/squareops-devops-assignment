@@ -22,11 +22,17 @@ CMD ["python", "app.py"]
 # final defines the stage that will bundle the application for production
 FROM base AS final
 
-# Copy our code from the current folder to the working directory inside the container
+# Copy application code
 COPY . .
 
-# Make port 80 available for links and/or publish
+# Create and use a dedicated non-root user
+RUN useradd --create-home --uid 10001 appuser && \
+    chown -R appuser:appuser /usr/local/app
+
+USER 10001
+
+# Make port 80 available
 EXPOSE 80
 
-# Define our command to be run when launching the container
+# Run the application
 CMD ["gunicorn", "app:app", "-b", "0.0.0.0:80", "--log-file", "-", "--access-logfile", "-", "--workers", "4", "--keep-alive", "0"]

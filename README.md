@@ -388,6 +388,36 @@ kubectl rollout status deployment/redis
 kubectl rollout status deployment/worker
 kubectl rollout status statefulset/db
 ```
+## Bonus: Container Security Hardening
+
+As an additional security enhancement, all five application workloads are configured to run as non-root users with restrictive Kubernetes security contexts.
+
+The following runtime identities were verified directly inside the running Kubernetes pods:
+
+| Workload | Runtime User |
+| --- | --- |
+| Vote | UID 10001 (`appuser`) |
+| Result | UID 1000 (`node`) |
+| Worker | UID 10001 |
+| Redis | UID 999 (`redis`) |
+| PostgreSQL | UID 70 (`postgres`) |
+
+Each workload uses the following security controls:
+
+- `runAsNonRoot: true` prevents containers from running as UID 0.
+- `allowPrivilegeEscalation: false` prevents processes from gaining additional privileges.
+- All Linux capabilities are dropped using `capabilities.drop: [ALL]`.
+- `seccompProfile.type: RuntimeDefault` applies the container runtime's default seccomp profile.
+- Explicit non-root UID and GID values are configured for each workload.
+
+The Vote image was additionally modified to create and run as a dedicated `appuser` with UID 10001.
+
+The hardened deployment was functionally validated end to end:
+
+Vote -> Redis -> Worker -> PostgreSQL -> Result
+
+Verification included successful HTTP responses from the Vote and Result services, Redis returning `PONG`, PostgreSQL accepting connections, and the Worker successfully processing votes while running as a non-root user.
+
 ## Troubleshooting
 
 ### 1. Pods do not come up
