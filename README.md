@@ -388,7 +388,139 @@ kubectl rollout status deployment/redis
 kubectl rollout status deployment/worker
 kubectl rollout status statefulset/db
 ```
+## Troubleshooting
 
+### 1. Pods do not come up
+
+First, check the status of all application pods:
+
+```bash
+kubectl get pods
+```
+
+If a pod is stuck in `Pending`, `CrashLoopBackOff`, `ImagePullBackOff`, or another unhealthy state, inspect it:
+
+```bash
+kubectl describe pod <pod-name>
+```
+
+Check the container logs:
+
+```bash
+kubectl logs <pod-name>
+```
+
+For a container that has restarted, inspect the previous container logs:
+
+```bash
+kubectl logs <pod-name> --previous
+```
+
+Also verify rollout status:
+
+```bash
+kubectl rollout status deployment/vote --timeout=180s
+kubectl rollout status deployment/result --timeout=180s
+kubectl rollout status deployment/redis --timeout=180s
+kubectl rollout status deployment/worker --timeout=180s
+kubectl rollout status statefulset/db --timeout=180s
+```
+
+Common causes include image pull failures, failed health probes, insufficient resources, or a dependency such as Redis or PostgreSQL not being ready.
+
+### 2. A vote does not reach the Result app
+
+The voting flow is:
+
+```text
+Vote → Redis → Worker → PostgreSQL → Result
+```
+
+Check each component in sequence:
+
+```bash
+kubectl get pods
+kubectl logs deployment/vote
+kubectl logs deployment/worker
+kubectl logs deployment/result
+```
+
+Verify that Redis and PostgreSQL services exist:
+
+```bash
+kubectl get services
+```
+
+Test Redis connectivity from inside the Redis pod:
+
+```bash
+kubectl exec deployment/redis -- redis-cli ping
+```
+
+Expected output:
+
+```text
+PONG
+```
+
+Check the Worker logs for successful connections to Redis and PostgreSQL:
+
+```bash
+kubectl logs deployment/worker
+```
+
+If necessary, restart the Worker after confirming its dependencies are healthy:
+
+```bash
+kubectl rollout restart deployment/worker
+kubectl rollout status deployment/worker --timeout=180s
+```
+
+### 3. Ingress URLs do not open in the browser
+
+Verify that the NGINX Ingress Controller is running:
+
+```bash
+kubectl get pods -n ingress-nginx
+```
+
+Verify the Ingress resource:
+
+```bash
+kubectl get ingress
+```
+
+Start the required port-forward and keep that terminal open:
+
+```bash
+kubectl port-forward --address 0.0.0.0 \
+  -n ingress-nginx service/ingress-nginx-controller 8090:80
+```
+
+Then open:
+
+```text
+http://vote.localhost:8090
+http://result.localhost:8090
+```
+
+If the browser still cannot connect, test the routing directly:
+
+```bash
+curl -I -H "Host: vote.localhost" http://localhost:8090
+curl -I -H "Host: result.localhost" http://localhost:8090
+```
+
+Both endpoints should return `HTTP/1.1 200 OK`.
+
+If port `8090` is already in use, identify the conflicting process or use another local port:
+
+```bash
+kubectl port-forward --address 0.0.0.0 \
+  -n ingress-nginx service/ingress-nginx-controller 8091:80
+```
+
+Then access the applications on port `8091`.
 ## Clean Up
 
 Delete the complete local Kubernetes cluster:
@@ -418,6 +550,10 @@ The following scenarios were manually tested:
 - NGINX Ingress routing for both frontends.
 - Browser access through `vote.localhost` and `result.localhost`.
 - CI/CD trigger on changes under `vote/**`.
+- Vote service source code linted with Flake8 in CI.
+- Kubernetes manifests validated with kubeconform in strict mode.
+- Fresh `kind` cluster created inside the GitHub Actions runner for every CI/CD test run.
+- Complete application deployed to the fresh CI cluster and the Vote endpoint smoke-tested for HTTP 200 OK.
 - SHA-tagged image pushed to public GHCR.
 - Automated Kubernetes manifest update by GitHub Actions.
 - CI-built public image successfully pulled and run by Kubernetes.
