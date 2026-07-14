@@ -12,16 +12,16 @@ spec:
     matchLabels:
       app: db
 
-    template:
-      metadata:
-        labels:
-          app: db
-      spec:
-        securityContext:
-          fsGroup: 70
-          fsGroupChangePolicy: OnRootMismatch
+  template:
+    metadata:
+      labels:
+        app: db
+    spec:
+      securityContext:
+        fsGroup: 70
+        fsGroupChangePolicy: OnRootMismatch
 
-        containers:
+      containers:
         - name: postgres
           image: postgres:15-alpine
 
