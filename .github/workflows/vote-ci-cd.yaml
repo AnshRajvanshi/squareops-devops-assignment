@@ -138,18 +138,12 @@ jobs:
           kubectl apply -f \
             https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
 
-          echo "Waiting for NGINX admission jobs..."
+          echo "Waiting for NGINX admission job..."
 
           kubectl wait \
             --namespace ingress-nginx \
             --for=condition=complete \
             job/ingress-nginx-admission-create \
-            --timeout=180s
-
-          kubectl wait \
-            --namespace ingress-nginx \
-            --for=condition=complete \
-            job/ingress-nginx-admission-patch \
             --timeout=180s
 
           echo "Waiting for NGINX controller..."
