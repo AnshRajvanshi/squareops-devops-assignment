@@ -138,12 +138,29 @@ jobs:
           kubectl apply -f \
             https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
 
+          echo "Waiting for NGINX admission jobs..."
+
+          kubectl wait \
+            --namespace ingress-nginx \
+            --for=condition=complete \
+            job/ingress-nginx-admission-create \
+            --timeout=180s
+
+          kubectl wait \
+            --namespace ingress-nginx \
+            --for=condition=complete \
+            job/ingress-nginx-admission-patch \
+            --timeout=180s
+
+          echo "Waiting for NGINX controller..."
+
           kubectl wait \
             --namespace ingress-nginx \
             --for=condition=ready pod \
             --selector=app.kubernetes.io/component=controller \
             --timeout=180s
 
+          echo "NGINX Ingress Controller and admission webhook are ready."
       # ---------------------------------------------------------
       # Deploy complete application
       # ---------------------------------------------------------
@@ -151,7 +168,22 @@ jobs:
         run: |
           set -Eeuo pipefail
 
-          kubectl apply -f k8s-specifications/
+          echo "Deploying application manifests..."
+
+          for attempt in 1 2 3 4 5; do
+            if kubectl apply -f k8s-specifications/; then
+              echo "Application deployed successfully."
+              exit 0
+            fi
+
+            echo "Deployment attempt ${attempt}/5 failed. Retrying in 5 seconds..."
+            sleep 5
+          done
+
+          echo "ERROR: Failed to deploy application after 5 attempts."
+          kubectl get pods -A || true
+          kubectl get events --sort-by=.lastTimestamp || true
+          exit 1
 
       # ---------------------------------------------------------
       # Wait for every workload
