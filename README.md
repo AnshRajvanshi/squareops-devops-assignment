@@ -14,6 +14,12 @@ The application consists of five components:
 
 The complete application runs locally on a Kubernetes cluster created with `kind`.
 
+## Video Walkthrough
+
+A complete walkthrough of the Kubernetes deployment, end-to-end voting flow, persistent PostgreSQL storage, CI/CD pipeline, and container security hardening is available here:
+
+**YouTube Demo:** https://youtu.be/abDHR59qxUQ
+
 ## Architecture
 
 ```mermaid
